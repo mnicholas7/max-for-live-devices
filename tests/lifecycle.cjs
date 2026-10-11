@@ -1,0 +1,24 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const root=path.resolve(__dirname,'../devices/spectra-cube'),core=require(path.join(root,'core.js')),messages=[];
+const context=vm.createContext({SpectraCube:core,include(){},notifyclients(){},arrayfromargs:values=>Array.from(values),outlet(...values){messages.push(values);}});
+vm.runInContext(fs.readFileSync(path.join(root,'controller.js'),'utf8'),context);
+context.state.mappings[0]={id:10,path:'live_set tracks 0 mixer_device volume',base:0,table:[[0,-120],[1,6]]};
+context.point(.3,.4,.5);assert(!messages.some(value=>value[0]===0||value[0]===1));
+const bytes=context.getvalueof();assert(bytes.every(value=>Number.isInteger(value)&&value>=0&&value<=65535));
+const snapshot=context.serializeState();context.center();context.setvalueof(...bytes);assert.equal(context.serializeState(),snapshot);
+context.center();vm.runInContext('setvalueof(getvalueof())',context);assert.equal(context.state.point[0],.5);
+context.setvalueof(snapshot);assert.equal(context.serializeState(),snapshot);
+let available=false,attempts=0;
+context.Task=function(callback){this.callback=callback;this.schedule=delay=>{this.delay=delay;};this.cancel=()=>{this.cancelled=true;};this.repeat=()=>{this.repeating=true;};};
+context.LiveAPI=function(callback,target){attempts++;this.id=available?1:0;this.get=()=>120;};
+context.init();assert.equal(context.ready,false);assert.equal(context.task.delay,1000);assert(!messages.some(value=>value[0]===1));
+const retry=context.task;
+context.restoreMappings=()=>{};context.refreshtracks=()=>{};available=true;retry.callback();assert.equal(context.ready,true);assert.equal(context.task.repeating,true);assert(messages.some(value=>value[1]==='apiready'&&value[2]===1));
+context.tempo.get=()=>{throw new Error('disconnected');};context.tick();assert.equal(context.ready,false);assert.equal(context.task.delay,1000);assert.equal(context.serializeState(),snapshot);assert(messages.some(value=>value[1]==='apiready'&&value[2]===0));
+context.task.callback();context.lastTime=Date.now()-5000;context.tick();assert.equal(context.ready,false);assert.equal(context.task.delay,1000);assert.equal(context.serializeState(),snapshot);
+context.freebang();assert(context.task.cancelled);
+for(const name of fs.readdirSync(root).filter(name=>name.startsWith('spectra-cube-')&&name.endsWith('.js'))){const source=fs.readFileSync(path.join(root,name),'utf8');assert(!source.includes("include('"));assert(source.includes('autowatch=0;'));}
+const patch=JSON.parse(fs.readFileSync(path.join(root,'Spectra Cube.maxpat'))).patcher;
+assert.equal(patch.boxes.find(entry=>entry.box.id==='controller').box.numoutlets,3);
+for(let index=0;index<8;index++)assert(patch.lines.some(entry=>entry.patchline.source[0]==='targets'&&entry.patchline.destination[0]==='target-gate'+index));
+console.log('PASS numeric state/legacy restore, startup gates, API retries, interrupted transport recovery, cancellation and bundled script dependencies');

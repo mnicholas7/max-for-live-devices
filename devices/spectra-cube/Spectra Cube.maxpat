@@ -34,8 +34,10 @@
             130,
             22
           ],
-          "text": "js controller.js",
-          "varname": "controller"
+          "text": "js spectra-cube-controller-0.1.10.js",
+          "varname": "controller",
+          "numinlets": 1,
+          "numoutlets": 3
         }
       },
       {
@@ -48,9 +50,9 @@
             450,
             169
           ],
-          "filename": "cube-ui.js",
+          "filename": "spectra-cube-cube-ui-0.1.10.js",
           "jsarguments": [
-            "cube-ui.js"
+            "spectra-cube-cube-ui-0.1.10.js"
           ],
           "varname": "cube",
           "numinlets": 1,
@@ -1214,6 +1216,24 @@
           ],
           "varname": "z-label",
           "hidden": 1
+        }
+      },
+      {
+        "box": {
+          "id": "push-banks",
+          "maxclass": "newobj",
+          "patching_rect": [
+            600,
+            780,
+            80,
+            22
+          ],
+          "text": "live.banks",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ]
         }
       },
       {
@@ -2438,8 +2458,8 @@
             22
           ],
           "varname": "manual",
-          "text": "MANUAL / ORIGINALS",
-          "texton": "MANUAL / ORIGINALS",
+          "text": "MANUAL",
+          "texton": "MANUAL",
           "mode": 1,
           "parameter_enable": 1,
           "parameter_mappable": 0,
@@ -2447,7 +2467,7 @@
           "presentation_rect": [
             462,
             94,
-            177,
+            85,
             22
           ],
           "saved_attribute_attributes": {
@@ -2481,6 +2501,58 @@
       },
       {
         "box": {
+          "id": "directwrite",
+          "maxclass": "live.text",
+          "patching_rect": [
+            1075,
+            35,
+            85,
+            22
+          ],
+          "varname": "directwrite",
+          "text": "WRITE TEST",
+          "texton": "WRITE TEST",
+          "mode": 1,
+          "parameter_enable": 0,
+          "parameter_mappable": 0,
+          "presentation": 1,
+          "presentation_rect": [
+            551,
+            94,
+            88,
+            22
+          ],
+          "saved_attribute_attributes": {
+            "valueof": {
+              "parameter_longname": "WRITE TEST",
+              "parameter_shortname": "WRITE TEST",
+              "parameter_type": 2,
+              "parameter_enum": [
+                "Off",
+                "On"
+              ],
+              "parameter_mmin": 0,
+              "parameter_mmax": 1,
+              "parameter_invisible": 0
+            }
+          }
+        }
+      },
+      {
+        "box": {
+          "id": "directwrite-command",
+          "maxclass": "newobj",
+          "patching_rect": [
+            1075,
+            565,
+            120,
+            22
+          ],
+          "text": "prepend directwrite"
+        }
+      },
+      {
+        "box": {
           "id": "eq-mirror",
           "maxclass": "jsui",
           "patching_rect": [
@@ -2489,9 +2561,9 @@
             408,
             169
           ],
-          "filename": "eq-ui.js",
+          "filename": "spectra-cube-eq-ui-0.1.10.js",
           "jsarguments": [
-            "eq-ui.js"
+            "spectra-cube-eq-ui-0.1.10.js"
           ],
           "varname": "eq-mirror",
           "numinlets": 1,
@@ -2542,10 +2614,20 @@
             135,
             22
           ],
-          "text": "live.remote~ @normalized 0 @smoothing 15",
-          "saved_object_attributes": {
-            "_persistence": 1
-          }
+          "text": "live.remote~ @normalized 0 @smoothing 15"
+        }
+      },
+      {
+        "box": {
+          "id": "target-gate0",
+          "maxclass": "newobj",
+          "patching_rect": [
+            350,
+            840,
+            65,
+            22
+          ],
+          "text": "gate 1 0"
         }
       },
       {
@@ -2558,10 +2640,20 @@
             135,
             22
           ],
-          "text": "live.remote~ @normalized 0 @smoothing 15",
-          "saved_object_attributes": {
-            "_persistence": 1
-          }
+          "text": "live.remote~ @normalized 0 @smoothing 15"
+        }
+      },
+      {
+        "box": {
+          "id": "target-gate1",
+          "maxclass": "newobj",
+          "patching_rect": [
+            490,
+            840,
+            65,
+            22
+          ],
+          "text": "gate 1 0"
         }
       },
       {
@@ -2574,10 +2666,20 @@
             135,
             22
           ],
-          "text": "live.remote~ @normalized 0 @smoothing 15",
-          "saved_object_attributes": {
-            "_persistence": 1
-          }
+          "text": "live.remote~ @normalized 0 @smoothing 15"
+        }
+      },
+      {
+        "box": {
+          "id": "target-gate2",
+          "maxclass": "newobj",
+          "patching_rect": [
+            630,
+            840,
+            65,
+            22
+          ],
+          "text": "gate 1 0"
         }
       },
       {
@@ -2590,10 +2692,20 @@
             135,
             22
           ],
-          "text": "live.remote~ @normalized 0 @smoothing 15",
-          "saved_object_attributes": {
-            "_persistence": 1
-          }
+          "text": "live.remote~ @normalized 0 @smoothing 15"
+        }
+      },
+      {
+        "box": {
+          "id": "target-gate3",
+          "maxclass": "newobj",
+          "patching_rect": [
+            770,
+            840,
+            65,
+            22
+          ],
+          "text": "gate 1 0"
         }
       },
       {
@@ -2606,10 +2718,20 @@
             135,
             22
           ],
-          "text": "live.remote~ @normalized 0 @smoothing 15",
-          "saved_object_attributes": {
-            "_persistence": 1
-          }
+          "text": "live.remote~ @normalized 0 @smoothing 15"
+        }
+      },
+      {
+        "box": {
+          "id": "target-gate4",
+          "maxclass": "newobj",
+          "patching_rect": [
+            910,
+            840,
+            65,
+            22
+          ],
+          "text": "gate 1 0"
         }
       },
       {
@@ -2622,10 +2744,20 @@
             135,
             22
           ],
-          "text": "live.remote~ @normalized 0 @smoothing 15",
-          "saved_object_attributes": {
-            "_persistence": 1
-          }
+          "text": "live.remote~ @normalized 0 @smoothing 15"
+        }
+      },
+      {
+        "box": {
+          "id": "target-gate5",
+          "maxclass": "newobj",
+          "patching_rect": [
+            1050,
+            840,
+            65,
+            22
+          ],
+          "text": "gate 1 0"
         }
       },
       {
@@ -2638,10 +2770,20 @@
             135,
             22
           ],
-          "text": "live.remote~ @normalized 0 @smoothing 15",
-          "saved_object_attributes": {
-            "_persistence": 1
-          }
+          "text": "live.remote~ @normalized 0 @smoothing 15"
+        }
+      },
+      {
+        "box": {
+          "id": "target-gate6",
+          "maxclass": "newobj",
+          "patching_rect": [
+            1190,
+            840,
+            65,
+            22
+          ],
+          "text": "gate 1 0"
         }
       },
       {
@@ -2654,10 +2796,20 @@
             135,
             22
           ],
-          "text": "live.remote~ @normalized 0 @smoothing 15",
-          "saved_object_attributes": {
-            "_persistence": 1
-          }
+          "text": "live.remote~ @normalized 0 @smoothing 15"
+        }
+      },
+      {
+        "box": {
+          "id": "target-gate7",
+          "maxclass": "newobj",
+          "patching_rect": [
+            1330,
+            840,
+            65,
+            22
+          ],
+          "text": "gate 1 0"
         }
       },
       {
@@ -2670,7 +2822,7 @@
             475,
             22
           ],
-          "text": "route axes manualaxes curve buttons trackmenu trackchoice eqview manualstate depths"
+          "text": "route axes manualaxes curve buttons trackmenu trackchoice eqview manualstate depths apiready"
         }
       },
       {
@@ -3974,6 +4126,30 @@
       {
         "patchline": {
           "source": [
+            "directwrite",
+            0
+          ],
+          "destination": [
+            "directwrite-command",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "directwrite-command",
+            0
+          ],
+          "destination": [
+            "controller",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
             "eq-mirror",
             0
           ],
@@ -4026,6 +4202,18 @@
             0
           ],
           "destination": [
+            "target-gate0",
+            1
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "target-gate0",
+            0
+          ],
+          "destination": [
             "remote0",
             1
           ]
@@ -4034,6 +4222,18 @@
       {
         "patchline": {
           "source": [
+            "ui-route",
+            9
+          ],
+          "destination": [
+            "target-gate0",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
             "values",
             1
           ],
@@ -4050,8 +4250,32 @@
             1
           ],
           "destination": [
+            "target-gate1",
+            1
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "target-gate1",
+            0
+          ],
+          "destination": [
             "remote1",
             1
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "ui-route",
+            9
+          ],
+          "destination": [
+            "target-gate1",
+            0
           ]
         }
       },
@@ -4074,6 +4298,18 @@
             2
           ],
           "destination": [
+            "target-gate2",
+            1
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "target-gate2",
+            0
+          ],
+          "destination": [
             "remote2",
             1
           ]
@@ -4082,6 +4318,18 @@
       {
         "patchline": {
           "source": [
+            "ui-route",
+            9
+          ],
+          "destination": [
+            "target-gate2",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
             "values",
             3
           ],
@@ -4098,8 +4346,32 @@
             3
           ],
           "destination": [
+            "target-gate3",
+            1
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "target-gate3",
+            0
+          ],
+          "destination": [
             "remote3",
             1
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "ui-route",
+            9
+          ],
+          "destination": [
+            "target-gate3",
+            0
           ]
         }
       },
@@ -4122,6 +4394,18 @@
             4
           ],
           "destination": [
+            "target-gate4",
+            1
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "target-gate4",
+            0
+          ],
+          "destination": [
             "remote4",
             1
           ]
@@ -4130,6 +4414,18 @@
       {
         "patchline": {
           "source": [
+            "ui-route",
+            9
+          ],
+          "destination": [
+            "target-gate4",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
             "values",
             5
           ],
@@ -4146,8 +4442,32 @@
             5
           ],
           "destination": [
+            "target-gate5",
+            1
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "target-gate5",
+            0
+          ],
+          "destination": [
             "remote5",
             1
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "ui-route",
+            9
+          ],
+          "destination": [
+            "target-gate5",
+            0
           ]
         }
       },
@@ -4170,8 +4490,32 @@
             6
           ],
           "destination": [
+            "target-gate6",
+            1
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "target-gate6",
+            0
+          ],
+          "destination": [
             "remote6",
             1
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "ui-route",
+            9
+          ],
+          "destination": [
+            "target-gate6",
+            0
           ]
         }
       },
@@ -4194,8 +4538,32 @@
             7
           ],
           "destination": [
+            "target-gate7",
+            1
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "target-gate7",
+            0
+          ],
+          "destination": [
             "remote7",
             1
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "ui-route",
+            9
+          ],
+          "destination": [
+            "target-gate7",
+            0
           ]
         }
       },
@@ -4215,7 +4583,7 @@
         "patchline": {
           "source": [
             "ui-route",
-            9
+            10
           ],
           "destination": [
             "cube",
@@ -4849,6 +5217,22 @@
         "Z mids",
         0
       ],
+      "parameterbanks": {
+        "0": {
+          "index": 0,
+          "name": "Cube",
+          "parameters": [
+            "X blend",
+            "Y tilt",
+            "Z mids",
+            "-",
+            "-",
+            "-",
+            "-",
+            "-"
+          ]
+        }
+      },
       "stretch": [
         "Loop stretch",
         "Loop stretch",
@@ -4967,32 +5351,20 @@
     },
     "dependency_cache": [
       {
-        "name": "core.js",
-        "bootpath": ".",
+        "name": "spectra-cube-controller-0.1.10.js",
+        "bootpath": "/Volumes/OWC/CreatorMode/Documents/Codex/max-for-live-devices/devices/spectra-cube",
         "type": "TEXT",
         "implicit": 1
       },
       {
-        "name": "controller.js",
-        "bootpath": ".",
+        "name": "spectra-cube-cube-ui-0.1.10.js",
+        "bootpath": "/Volumes/OWC/CreatorMode/Documents/Codex/max-for-live-devices/devices/spectra-cube",
         "type": "TEXT",
         "implicit": 1
       },
       {
-        "name": "cube-ui.js",
-        "bootpath": ".",
-        "type": "TEXT",
-        "implicit": 1
-      },
-      {
-        "name": "eq-ui.js",
-        "bootpath": ".",
-        "type": "TEXT",
-        "implicit": 1
-      },
-      {
-        "name": "layout.js",
-        "bootpath": ".",
+        "name": "spectra-cube-eq-ui-0.1.10.js",
+        "bootpath": "/Volumes/OWC/CreatorMode/Documents/Codex/max-for-live-devices/devices/spectra-cube",
         "type": "TEXT",
         "implicit": 1
       }

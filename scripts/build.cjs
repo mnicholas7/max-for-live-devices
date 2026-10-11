@@ -1,6 +1,12 @@
 const fs=require('node:fs');
 const path=require('node:path');
 const root=path.resolve(__dirname,'../devices/spectra-cube');
+const sources={'controller.js':['core.js','layout.js'],'cube-ui.js':['core.js'],'eq-ui.js':[]},bundles={};
+for(const [name,includes]of Object.entries(sources)){
+ const filename='spectra-cube-'+name.replace('.js','')+'-0.1.10.js';bundles[name]=filename;
+ const body=fs.readFileSync(path.join(root,name),'utf8').replace(/^include\('[^']+'\);\n/gm,'');
+ fs.writeFileSync(path.join(root,filename),includes.map(include=>fs.readFileSync(path.join(root,include),'utf8')).join('\n')+'\n'+body);
+}
 const boxes=[],lines=[],parameters={};
 function box(id,maxclass,rect,extra={}){boxes.push({box:{id,maxclass,patching_rect:rect,...extra}});return id;}
 function object(id,text,rect,extra={}){return box(id,'newobj',rect,{text,...extra});}
@@ -20,7 +26,7 @@ function button(id,label,rect,command,toggle=false){
  let previous=id;
  const message=box(id+'-command',toggle?'newobj':'message',[rect[0],530+rect[1],120,22],{text:toggle?'prepend '+command:command});wire(previous,0,message);wire(message,0,'controller');
 }
-object('controller','js controller.js',[20,700,130,22],{varname:'controller'});
+object('controller','js controller.js',[20,700,130,22],{varname:'controller',numinlets:1,numoutlets:3});
 box('cube','jsui',[0,0,450,169],{filename:'cube-ui.js',jsarguments:['cube-ui.js'],varname:'cube',numinlets:1,numoutlets:1,presentation:1,presentation_rect:[0,0,450,169]});wire('cube',0,'controller');
 object('state','pattr cube_state @bindto controller @parameter_enable 1',[20,740,345,22],{saved_attribute_attributes:{valueof:{parameter_longname:'Cube state',parameter_shortname:'State',parameter_type:3,parameter_invisible:1}}});parameters.state=['Cube state','State',0];
 object('ready','live.thisdevice',[20,780,105,22]);object('defer','deferlow',[145,780,65,22]);box('init','message',[235,780,45,22],{text:'init'});wire('ready',0,'defer');wire('defer',0,'init');wire('init',0,'controller');
@@ -38,6 +44,9 @@ parameter('midDepth','Mid sweep',[802,61,50,42],0,1,1);
 parameter('x','X blend',[465,125,50,42],0,1,.5);
 parameter('y','Y tilt',[523,125,50,42],0,1,.5);
 parameter('z','Z mids',[581,125,50,42],0,1,.5);
+// Saved first bank: Push maps the three axes when this device is selected.
+object('push-banks','live.banks',[600,780,80,22],{numinlets:1,numoutlets:1,outlettype:['']});
+parameters.parameterbanks={0:{index:0,name:'Cube',parameters:['X blend','Y tilt','Z mids','-','-','-','-','-']}};
 parameter('stretch','Loop stretch',[654,125,60,42],-2,2,0);
 parameter('sync','Stretch sync',[731,132,130,22],0,1,1,['Free','Sync powers of 2']);
 button('record','REC',[875,8,55,22],'record',true);button('loop','LOOP',[936,8,55,22],'playback',true);button('undo','UNDO',[997,8,55,22],'undo');
@@ -54,10 +63,13 @@ for(const [side,label]of ['Track A / auto-map','Track B / auto-map'].entries()){
 button('refreshtracks','REFRESH TRACKS',[1075,145,177,22],'refreshtracks');
 button('resetunity','RESET UNITY',[650,143,200,22],'resetunity');
 button('manual','MANUAL / ORIGINALS',[1075,8,177,22],'manual',true);
+button('directwrite','WRITE TEST',[1075,35,85,22],'directwrite',true);
+boxes.find(entry=>entry.box.id==='directwrite').box.parameter_enable=0;
+delete parameters.directwrite;
 box('eq-mirror','jsui',[1270,0,408,169],{filename:'eq-ui.js',jsarguments:['eq-ui.js'],varname:'eq-mirror',numinlets:1,numoutlets:1,presentation:1,presentation_rect:[1270,0,408,169]});wire('eq-mirror',0,'controller');
 object('values','route 0 1 2 3 4 5 6 7',[360,740,190,22]);object('targets','route 0 1 2 3 4 5 6 7',[360,780,190,22]);wire('controller',0,'values');wire('controller',1,'targets');
-for(let index=0;index<8;index++){const id='remote'+index;object(id,'live.remote~ @normalized 0 @smoothing 15',[350+index*140,870,135,22],{saved_object_attributes:{_persistence:1}});wire('values',index,id);wire('targets',index,id,1);}
-object('ui-route','route axes manualaxes curve buttons trackmenu trackchoice eqview manualstate depths',[20,910,475,22]);wire('controller',2,'ui-route');wire('ui-route',9,'cube');
+for(let index=0;index<8;index++){const id='remote'+index;object(id,'live.remote~ @normalized 0 @smoothing 15',[350+index*140,870,135,22]);object('target-gate'+index,'gate 1 0',[350+index*140,840,65,22]);wire('values',index,id);wire('targets',index,'target-gate'+index,1);wire('target-gate'+index,0,id,1);wire('ui-route',9,'target-gate'+index);}
+object('ui-route','route axes manualaxes curve buttons trackmenu trackchoice eqview manualstate depths apiready',[20,910,475,22]);wire('controller',2,'ui-route');wire('ui-route',10,'cube');
 object('depth-state','unpack f f',[1000,1180,85,22]);wire('ui-route',8,'depth-state');
 for(const [index,id]of ['toneDepth','midDepth'].entries()){object('set-'+id,'prepend set',[1000+index*90,1220,85,22]);wire('depth-state',index,'set-'+id);wire('set-'+id,0,id);}
 object('eq-view','prepend eqview',[1000,1140,110,22]);wire('ui-route',6,'eq-view');wire('eq-view',0,'eq-mirror');
@@ -76,7 +88,10 @@ const layout={names:['EQ','Curves','Mapping','Loop'],controls:[]};
 function place(id,rect,section){const control=boxes.find(entry=>entry.box.id===id).box;control.varname=id;control.presentation_rect=rect;if(section!==undefined){control.hidden=section===0?0:1;layout.controls.push({id,rect,section});}}
 place('track-0',[462,24,177,22]);place('track-0-label',[462,8,177,16]);
 place('track-1',[462,67,177,22]);place('track-1-label',[462,51,177,16]);
-place('manual',[462,94,177,22]);
+place('manual',[462,94,85,22]);
+place('directwrite',[551,94,88,22]);
+boxes.find(entry=>entry.box.id==='manual').box.text='MANUAL';
+boxes.find(entry=>entry.box.id==='manual').box.texton='MANUAL';
 place('record',[462,122,55,20]);place('loop',[523,122,55,20]);place('undo',[584,122,55,20]);
 place('center',[462,147,54,20]);place('capture',[520,147,58,20]);place('release',[582,147,57,20]);
 for(const [id,label]of [['center','CENTER'],['capture','CAPTURE'],['release','RELEASE']]){const control=boxes.find(entry=>entry.box.id===id).box;control.text=label;control.texton=label;control.fontsize=9;}
@@ -96,17 +111,19 @@ for(const id of ['x','y','z','stretch','sync']){
 for(let index=0;index<4;index++)button('section-'+index,(index===0?'− ':'+ ')+layout.names[index],[650+index*104,0,100,20],'section '+index);
 fs.writeFileSync(path.join(root,'layout.js'),'var SpectraLayout='+JSON.stringify(layout)+';\n');
 const patcher={fileversion:1,appversion:{major:9,minor:1,revision:5,architecture:'x64',modernui:1},classnamespace:'box',rect:[80,80,1070,600],openinpresentation:1,devicewidth:1070,bgcolor:[.055,.075,.1,1],boxes,lines,parameters,dependency_cache:['core.js','controller.js','cube-ui.js','eq-ui.js','layout.js'].map(name=>({name,bootpath:'.',type:'TEXT',implicit:1})),autosave:0};
+for(const entry of boxes){const control=entry.box;if(control.id==='controller')control.text='js '+bundles['controller.js'];if(control.id==='cube'||control.id==='eq-mirror'){const name=bundles[control.filename];control.filename=name;control.jsarguments=[name];}}
+patcher.dependency_cache=Object.values(bundles).map(name=>({name,bootpath:root,type:'TEXT',implicit:1}));
 const json=Buffer.from(JSON.stringify({patcher},null,2)+'\n');
 fs.writeFileSync(path.join(root,'Spectra Cube.maxpat'),json);
 const header=Buffer.alloc(32);header.write('ampf');header.writeUInt32LE(4,4);header.write('mmmm',8);header.write('meta',12);header.writeUInt32LE(4,16);header.write('ptch',24);header.writeUInt32LE(json.length,28);
 fs.writeFileSync(path.join(root,'Spectra Cube.amxd'),Buffer.concat([header,json]));
-fs.writeFileSync(path.join(root,'Spectra Cube 0.1.1.amxd'),Buffer.concat([header,json]));
-fs.writeFileSync(path.join(root,'Spectra Cube 0.1.2.amxd'),Buffer.concat([header,json]));
-fs.writeFileSync(path.join(root,'Spectra Cube 0.1.3.amxd'),Buffer.concat([header,json]));
-fs.writeFileSync(path.join(root,'Spectra Cube 0.1.4.amxd'),Buffer.concat([header,json]));
-fs.writeFileSync(path.join(root,'Spectra Cube 0.1.5.amxd'),Buffer.concat([header,json]));
-fs.writeFileSync(path.join(root,'Spectra Cube 0.1.6.amxd'),Buffer.concat([header,json]));
-fs.writeFileSync(path.join(root,'Spectra Cube 0.1.7.amxd'),Buffer.concat([header,json]));
-fs.writeFileSync(path.join(root,'Spectra Cube 0.1.8.amxd'),Buffer.concat([header,json]));
-fs.writeFileSync(path.join(root,'Spectra Cube 0.1.9.amxd'),Buffer.concat([header,json]));
-console.log('Built compact MIDI device and editable Max patch; keep the five JS files beside the device.');
+fs.writeFileSync(path.join(root,'Spectra Cube 0.1.10.amxd'),Buffer.concat([header,json]));
+const project=path.resolve(__dirname,'../release/Spectra Cube');
+fs.mkdirSync(path.join(project,'patchers'),{recursive:true});fs.mkdirSync(path.join(project,'code'),{recursive:true});
+fs.writeFileSync(path.join(project,'patchers','Spectra Cube.maxpat'),json);
+const code={};for(const name of Object.values(bundles)){fs.copyFileSync(path.join(root,name),path.join(project,'code',name));code[name]={kind:'javascript',local:1};}
+fs.writeFileSync(path.join(project,'Spectra Cube.maxproj'),JSON.stringify({name:'Spectra Cube',version:1,autoorganize:1,autolocalize:0,contents:{patchers:{'Spectra Cube.maxpat':{kind:'patcher',local:1,toplevel:1}},code},layout:{},searchpath:{}},null,2));
+console.log('Built 0.1.10 source device and named Max project for freezing; historical versions preserved.');
+const local=JSON.parse(json);for(const entry of local.patcher.boxes){const control=entry.box;if(control.id==='controller')control.text='js '+JSON.stringify(path.join(root,bundles['controller.js']));if(control.maxclass==='jsui'){control.filename=path.join(root,control.filename);control.jsarguments=[control.filename];}}
+const localJson=Buffer.from(JSON.stringify(local,null,2)+'\n'),localHeader=Buffer.from(header);localHeader.writeUInt32LE(localJson.length,28);
+fs.writeFileSync(path.join(root,'Spectra Cube 0.1.10 Local.amxd'),Buffer.concat([localHeader,localJson]));

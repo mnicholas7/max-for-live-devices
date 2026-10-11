@@ -18,6 +18,17 @@ loop.start([.5,.5,.5]);loop.tick(4.2,0,false,[.3,.2,.1]);loop.stop([.3,.2,.1]);a
 near(core.rawForDb([[0,-120],[.5,-6],[1,6]],0),.75);
 const device=fs.readFileSync(path.resolve(__dirname,'../devices/spectra-cube/Spectra Cube.amxd'));assert.equal(device.toString('ascii',0,4),'ampf');assert.equal(device.toString('ascii',8,12),'mmmm');assert.equal(device.readUInt32LE(28),device.length-32);
 const patch=JSON.parse(device.subarray(32)).patcher;const ids=new Set(patch.boxes.map(entry=>entry.box.id));for(const entry of patch.lines){assert(ids.has(entry.patchline.source[0]));assert(ids.has(entry.patchline.destination[0]));}
+assert(patch.boxes.some(entry=>entry.box.text==='live.banks'));
+const pushBank=patch.parameters.parameterbanks[0];
+assert.equal(pushBank.name,'Cube');
+assert.deepEqual(pushBank.parameters,['X blend','Y tilt','Z mids','-','-','-','-','-']);
+for(const [index,id]of ['x','y','z'].entries()){
+ const dial=patch.boxes.find(entry=>entry.box.id===id).box;
+ assert.equal(dial.parameter_enable,1);
+ assert.equal(dial.saved_attribute_attributes.valueof.parameter_longname,pushBank.parameters[index]);
+ assert(patch.lines.some(entry=>entry.patchline.source[0]===id&&entry.patchline.destination[0]===id+'-message'));
+ assert(patch.lines.some(entry=>entry.patchline.source[0]===id+'-message'&&entry.patchline.destination[0]==='controller'));
+}
 const luminance=color=>color.slice(0,3).map(value=>value<=.04045?value/12.92:((value+.055)/1.055)**2.4).reduce((total,value,index)=>total+value*[.2126,.7152,.0722][index],0);
 const contrast=(foreground,background)=>(luminance(foreground)+.05)/(luminance(background)+.05);
 const menus=patch.boxes.map(entry=>entry.box).filter(control=>control.maxclass==='live.menu');
@@ -37,10 +48,10 @@ context.record(1);assert(messages.some(values=>values[1]==='buttons'&&values[2]=
 context.loop.tick(3.4,0,false,[.1,.2,.3]);context.record(0);assert.equal(context.loop.take.length,3);
 assert(messages.some(values=>values[1]==='buttons'&&values[2]===0&&values[3]===1));
 context.parameter('x',.2);context.parameter('toneCurve',3);
-const saved=context.getvalueof();context.center();context.setvalueof(saved);
+const saved=context.serializeState();context.center();context.setvalueof(saved);
 near(context.state.point[0],.2);assert.equal(context.state.toneCurve,3);assert.equal(context.loop.take.length,3);assert.equal(context.loop.playing,false);
 context.custom('tone',0,2,.75);assert.equal(context.state.toneCurve,4);near(context.state.customTone[2],.75);
-context.state.mappings[0]={base:0,table:[[0,-120],[.5,-6],[1,6]]};context.point(.5,.5,.5);
+context.ready=true;context.state.mappings[0]={base:0,table:[[0,-120],[.5,-6],[1,6]]};context.point(.5,.5,.5);
 const remoteValue=messages.filter(values=>values[0]===0&&values[1]===0).at(-1);near(remoteValue[2],.75);
 context.release();assert(context.state.mappings.every(value=>value===null));assert.equal(context.loop.playing,false);
 const targets={
@@ -88,14 +99,14 @@ context.song={get:name=>name==='tracks'?['id',100,'id',101,'id',102]:[]};
 context.refreshtracks();assert.deepEqual(Array.from(context.trackIds),[100,101,102]);
 context.track(0,1);assert.deepEqual(Array.from(context.state.mappings.slice(0,4),mapping=>mapping.id),[300,400,401,402]);
 context.track(1,2);assert.deepEqual(Array.from(context.state.mappings.slice(4),mapping=>mapping.id),[301,410,411,412]);
-const beforeAuto=context.getvalueof();context.track(1,1);assert.equal(context.getvalueof(),beforeAuto);
-autoTargets[102].devices=[];context.track(0,3);assert.equal(context.getvalueof(),beforeAuto);
-autoTargets[102].devices=['id',200,'id',201];context.track(0,3);assert.equal(context.getvalueof(),beforeAuto);
-autoTargets[300].value=.1;context.track(0,1);assert.equal(context.getvalueof(),beforeAuto);
+const beforeAuto=context.serializeState();context.track(1,1);assert.equal(context.serializeState(),beforeAuto);
+autoTargets[102].devices=[];context.track(0,3);assert.equal(context.serializeState(),beforeAuto);
+autoTargets[102].devices=['id',200,'id',201];context.track(0,3);assert.equal(context.serializeState(),beforeAuto);
+autoTargets[300].value=.1;context.track(0,1);assert.equal(context.serializeState(),beforeAuto);
 assert.equal(context.state.mappings[0].path,'live_set tracks 0 mixer_device volume');
-context.restoreMappings();assert.equal(context.getvalueof(),beforeAuto);
-context.state.mappings[0].path='"'+context.state.mappings[0].path+'"';context.restoreMappings();assert.equal(context.getvalueof(),beforeAuto);
-const mixerChild=autoTargets[101].mixer_device;autoTargets[101].mixer_device=['id',0];context.track(1,2);assert.equal(context.getvalueof(),beforeAuto);autoTargets[101].mixer_device=mixerChild;
+context.restoreMappings();assert.equal(context.serializeState(),beforeAuto);
+context.state.mappings[0].path='"'+context.state.mappings[0].path+'"';context.restoreMappings();assert.equal(context.serializeState(),beforeAuto);
+const mixerChild=autoTargets[101].mixer_device;autoTargets[101].mixer_device=['id',0];context.track(1,2);assert.equal(context.serializeState(),beforeAuto);autoTargets[101].mixer_device=mixerChild;
 context.mirror();
 let mirrored=JSON.parse(messages.filter(values=>values[1]==='eqview').at(-1)[2]);
 assert.equal(mirrored.strips[0].values.length,11);near(mirrored.strips[0].values[0].raw,120/126);assert.equal(mirrored.strips[0].values[4].raw,1000);
@@ -109,9 +120,9 @@ const startManualPoint=messages.length;context.point(.7,.8,.9);assert(!messages.
 context.eqedit(0,1,.8);near(autoTargets[400].value,.8);context.mirror();mirrored=JSON.parse(messages.filter(values=>values[1]==='eqview').at(-1)[2]);assert.equal(mirrored.strips[0].values[1].raw,.8);
 context.manual(0);assert.equal(context.state.manual,0);near(context.state.mappings[1].base,-19.2);
 const savedPath=autoTargets[600].path;autoTargets[600].path='live_set tracks 7 devices 0 parameters 3';context.eqedit(0,4,1);near(autoTargets[600].value,5025);autoTargets[600].path=savedPath;
-const beforeRefresh=context.getvalueof(),nativeOutlet=context.outlet;
+const beforeRefresh=context.serializeState(),nativeOutlet=context.outlet;
 context.outlet=(...values)=>{messages.push(values);if(values[1]==='trackmenu'&&values[2]==='clear'){context.track(0,0);context.track(1,0);}if(values[1]==='trackchoice')context.track(values[2],0);};
-context.refreshtracks();assert.equal(context.getvalueof(),beforeRefresh);assert.equal(context.menuBusy,false);
+context.refreshtracks();assert.equal(context.serializeState(),beforeRefresh);assert.equal(context.menuBusy,false);
 context.outlet=nativeOutlet;const beforeSelectMessages=messages.length;context.track(0,1);assert(!messages.slice(beforeSelectMessages).some(values=>values[1]==='trackmenu'));
 context.state.djSweep=0;context.state.toneCurve=0;context.state.midCurve=0;context.state.toneDepth=3;context.state.midDepth=3;
 for(const index of [1,2,3,5,6,7])context.state.mappings[index].base=0;
@@ -137,9 +148,9 @@ context.point(.5,.5,.5);for(const index of [1,2,3,5,6,7])near(gainOutput(index),
 context.parameter('toneDepth',.5);near(context.state.toneDepth,6);context.point(.5,0,.5);near(gainOutput(1),60/126);
 context.eqedit(0,1,.4);near(gainOutput(1),.4);
 context.manual(1);context.resetunity();assert.equal(context.state.manual,0);
-context.record(1);const beforeRecordReset=context.getvalueof();context.resetunity();assert.equal(context.getvalueof(),beforeRecordReset);context.track(0,3);assert.equal(context.getvalueof(),beforeRecordReset);context.record(0);
-const stalePath=autoTargets[400].path;autoTargets[400].path='live_set tracks 8 devices 0 parameters 0';const beforeStaleReset=context.getvalueof();context.resetunity();assert.equal(context.getvalueof(),beforeStaleReset);autoTargets[400].path=stalePath;
-const legacy=JSON.parse(context.getvalueof());delete legacy.djSweep;context.setvalueof(JSON.stringify(legacy));assert.equal(context.state.djSweep,0);
+context.record(1);const beforeRecordReset=context.serializeState();context.resetunity();assert.equal(context.serializeState(),beforeRecordReset);context.track(0,3);assert.equal(context.serializeState(),beforeRecordReset);context.record(0);
+const stalePath=autoTargets[400].path;autoTargets[400].path='live_set tracks 8 devices 0 parameters 0';const beforeStaleReset=context.serializeState();context.resetunity();assert.equal(context.serializeState(),beforeStaleReset);autoTargets[400].path=stalePath;
+const legacy=JSON.parse(context.serializeState());delete legacy.djSweep;context.setvalueof(JSON.stringify(legacy));assert.equal(context.state.djSweep,0);
 const nonlinear={base:0,table:[[0,-120],[.3,-24],[.7,0],[1,6]]};near(core.eqRaw(nonlinear,-12),0);near(core.eqRaw(nonlinear,12),1);near(core.eqRaw(nonlinear,-6),.35);near(core.eqRaw(nonlinear,0),.7);
 assert(patch.lines.some(entry=>entry.patchline.source[0]==='resetunity'&&entry.patchline.destination[0]==='resetunity-command'));
 context.track(0,0);assert(context.state.mappings.slice(0,4).every(mapping=>mapping===null));assert(context.state.mappings.slice(4).every(mapping=>mapping!==null));
@@ -159,14 +170,14 @@ uiContext.onclick(213,140);assert.deepEqual(uiMessages.at(-1),[0,'eqedit',1,6,0]
 uiContext.box.rect=[0,0,408,144];uiContext.onclick(21,57*144/169);assert.deepEqual(uiMessages.at(-1),[0,'eqedit',0,0,.5]);uiContext.paint();assert(uiDraws.some(values=>values[0]==='scale'&&values[2]===144/169));
 vm.runInContext(fs.readFileSync(path.resolve(__dirname,'../devices/spectra-cube/layout.js'),'utf8'),context);
 const layoutMessages=[];context.patcher={message(...values){layoutMessages.push(values);}};
-const soundState=()=>JSON.stringify({...JSON.parse(context.getvalueof()),uiSection:0});
+const soundState=()=>JSON.stringify({...JSON.parse(context.serializeState()),uiSection:0});
 const beforeSections=soundState();
 for(let panel=0;panel<4;panel++){
  context.state.uiSection=4;layoutMessages.length=0;context.section(panel);assert.equal(context.state.uiSection,panel);assert.equal(soundState(),beforeSections);
  for(const control of context.SpectraLayout.controls){assert(layoutMessages.some(values=>values[2]===control.id&&values[3]==='hidden'&&values[4]===(control.section===panel?0:1)));assert(control.rect[0]>=650);assert(control.rect[0]+control.rect[2]<=1070);assert(control.rect[1]>=24);assert(control.rect[1]+control.rect[3]<=169);}
  context.section(panel);assert.equal(context.state.uiSection,4);assert.equal(soundState(),beforeSections);
 }
-context.section(0);const sectionSave=context.getvalueof();context.section(1);context.setvalueof(sectionSave);assert.equal(context.state.uiSection,0);
+context.section(0);const sectionSave=context.serializeState();context.section(1);context.setvalueof(sectionSave);assert.equal(context.state.uiSection,0);
 assert.equal(patch.devicewidth,1070);
 assert.deepEqual(patch.boxes.find(entry=>entry.box.id==='eq-mirror').box.presentation_rect,[650,24,408,144]);
 for(const entry of patch.boxes.filter(entry=>entry.box.presentation)){const rect=entry.box.presentation_rect;assert(rect[0]>=0&&rect[1]>=0&&rect[0]+rect[2]<=1070&&rect[1]+rect[3]<=169,entry.box.id+' exceeds device bounds');}

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Michael Nicholas
 (function(root){
 function clamp(value,min,max){return Math.max(min,Math.min(max,value));}
 function copy(value){return JSON.parse(JSON.stringify(value));}
@@ -14,6 +16,9 @@ function shape(position,mode,amount,custom){
  if(mode===1)return Math.pow(position,1+amount*4);
  if(mode===2)return 1-Math.pow(1-position,1+amount*4);
  if(mode===3){var exponent=1+amount*8,left=Math.pow(position,exponent),right=Math.pow(1-position,exponent);return left/(left+right);}
+ if(mode===5)return .5+(position-.5)*(1-.8*amount);
+ if(mode===6){var d=position-.5,hold=.02+.28*amount;return Math.abs(d)<=hold?.5:.5+(d<0?-1:1)*(Math.abs(d)-hold)*.5/(.5-hold);}
+ if(mode===7){var d=(position-.5)*2;return .5+(d<0?-1:1)*Math.pow(Math.abs(d),1-.75*amount)*.5;}
  return position;
 }
 function faders(position,mode,amount,custom){

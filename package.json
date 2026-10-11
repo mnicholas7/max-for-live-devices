@@ -1,1 +1,1 @@
-{"name":"spectra-max-for-live-devices","version":"0.1.9","private":true,"license":"GPL-3.0-only","scripts":{"build":"node scripts/build.cjs","test":"node tests/cube.cjs"}}
+{"name":"spectra-max-for-live-devices","version":"0.1.10","private":true,"license":"GPL-3.0-only","scripts":{"build":"node scripts/build.cjs","build:automation":"node scripts/build-automation.cjs","build:stems":"node scripts/build-stem-collector.cjs","test":"node tests/cube.cjs && node tests/lifecycle.cjs && node tests/stem-collector.cjs && node tests/direct-write.cjs && node tests/automation.cjs"}}

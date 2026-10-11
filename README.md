@@ -1,132 +1,55 @@
-# Spectra Max for Live devices
+# Spectra · Max for Live
 
-**Make the mix a gesture.** Open-source controllers for Ableton Live, starting with **Spectra Cube 0.1.9**: a three-dimensional mixer for two tracks’ volume and EQ Three gains.
+**Mix with a gesture. Make room for the next idea.**
 
-[Download v0.1.9](https://github.com/mnicholas7/max-for-live-devices/releases/tag/v0.1.9) · [Project page](https://spectrascope.net/max-for-live/) · [Issues & ideas](https://github.com/mnicholas7/max-for-live-devices/issues)
+Two small, editable tools for Ableton Live: **Spectra Cube Automation** turns a pair of tracks into an XYZ performance mixer; **Session Stem Collector** gathers separated clips into four shared Session tracks for remixing and improvisation.
 
-![Spectra Cube: cube, response graphs, track selection and EQ strips](docs/images/eq-preview.png)
+[Device page](https://spectrascope.net/max-for-live/) · [Downloads](https://github.com/mnicholas7/max-for-live-devices/releases) · [Issues & ideas](https://github.com/mnicholas7/max-for-live-devices/issues)
 
-*Real Max presentation screenshot, before mapping. Dimmed EQ strips are unavailable until tracks are selected. Target environment: Live 12.4.6 Suite / Max 9.1.5.*
+| Device | Useful when… | Current release |
+| --- | --- | --- |
+| [Spectra Cube Automation](devices/spectra-cube-automation/README.md) | You want to blend two parts, trade their spectral space and record the movement with Live’s automation. | [0.1.6](https://github.com/mnicholas7/max-for-live-devices/releases/tag/cube-automation-v0.1.6) · experimental |
+| [Session Stem Collector](devices/stem-collector/README.md) | You have many four-stem groups and want one organized Drums / Bass / Vocals / Other clip palette. | [0.1.0](https://github.com/mnicholas7/max-for-live-devices/releases/tag/stem-collector-v0.1.0) · experimental |
 
-## One point. Two tracks. Three dimensions.
+## Spectra Cube Automation
 
-| Axis | What moves |
-| --- | --- |
-| **X** | Track A / B volumes |
-| **Y** | Opposing low/high EQ tilt on A / B |
-| **Z** | Opposing mid EQ gains — depth handle or **Alt/Option-drag** |
+![Spectra Cube Automation interface](docs/images/cube-automation-0.1.6.png)
 
-At center, the default Site curve keeps both volumes at unity and EQ neutral. Move toward either track to blend the volumes; tilt the cube to trade spectral space.
+Move **X** to blend track volumes, **Y** to trade lows and highs, and **Z** to balance the mids. Each axis has its own response curve and shape control. Start with Equal power volume and Linear EQ, or draw a custom curve. Push 3 puts shapes, axes and curve buttons on one front bank.
 
-- **Full DJ sweep:** complete cut to each target’s maximum boost, following its native gain-control scale.
-- **Automatic mapping:** choose two tracks with one EQ Three directly on each. Volume plus three gains map together.
-- **Actual readbacks:** mirrored strips display original volume, gains, crossover frequencies, bands, slope and EQ power.
-- **Independent gesture loops:** record movements, snap to the nearest beat and loop across clip/scene changes.
-- **Collapsible panels:** EQ, Curves, Mapping and Loop share one compact detail area.
-- **Local and transparent:** no telemetry, cloud service, network calls or audio processing.
+The performance lives in **Live’s XYZ automation lanes**. Record a transition once, edit its envelopes in Live and play it back with your Set. The current device uses event-driven parameter control and limits its display redraws to 20 fps; it does not run an internal recorder or poll targets during playback.
 
-## Install in five steps
+Both volume endpoints are 0 dB. One EQ Three directly on each target enables Y/Z; without an EQ Three, volume mixing still works. [Setup, curves and Push guide →](devices/spectra-cube-automation/README.md)
 
-1. **Download and extract the ZIP.** Keep the `.amxd` and all five JS files together: `core.js`, `controller.js`, `cube-ui.js`, `eq-ui.js`, `layout.js`. This development release is not frozen into a standalone file.
-2. **Prepare two tracks.** Add one EQ Three directly to each. Turn down your monitoring level before mapping.
-3. **Load the Cube.** Drag `Spectra Cube 0.1.9.amxd` onto a dedicated **MIDI track**. It is a MIDI-effect controller that operates other tracks’ parameters, not an audio effect. MIDI passes through unchanged.
-4. **Choose Track A and Track B.** Each successful selection resets **all currently mapped** volumes and EQ gains to **0 dB unity**, enables the three EQ bands, centers the cube and pauses gesture playback. Power, crossovers and slope stay unchanged.
-5. **Move the point.** Drag normally for X/Y; hold **Alt/Option** for Z. Double-click centers without replacing baselines. **Mapping → Reset Unity** restores the known neutral setup later.
+## Session Stem Collector
 
-> **Unity is not maximum boost.** Mapping can restore an attenuated or muted track to an audible level. Two tracks at unity plus boosted EQ can clip. Monitor conservatively.
+![Session Stem Collector interface](docs/images/stem-collector-0.1.0.png)
 
-## Shape the response
+Live’s separated stems can leave you with a group for every source clip. The collector brings their clips together into four fresh tracks: **Collected Drums, Collected Bass, Collected Vocals and Collected Other**. Browse drum loops against another source’s bass, swap vocals or build a new performance from a common palette.
 
-![Independent volume, tone and mid response controls](docs/images/curves-preview.png)
+Choose a track/scene rectangle, **Scan** its matching groups, inspect the preview, then **Collect**. Copies stay aligned by source row and the new tracks start muted. Original clips remain in place. The collector organizes clips; Live performs the stem separation first. [Workflow and limits →](devices/stem-collector/README.md)
 
-*Real Max preview: the graphs and curve controls, with no Live targets connected.*
+## Download & install
 
-| Volume curves | EQ curves |
-| --- | --- |
-| Site original, Linear, Equal power, Soft blend, Sharp cut, Custom | Linear, Ease in, Ease out, S curve, Custom |
+Download the ZIP for the device you want and extract the whole folder. Keep its `.amxd` beside the supplied JavaScript files. These releases are portable folders, **not frozen single-file devices**. Load the ordinary `.amxd` on a spare MIDI track; the `Local` files produced by development builds are for the build machine only.
 
-Volume, low/high and mid curves are independent. Shape adjusts their response; **Tone/Mid sweep** (0–1) controls travel, with 1 reaching the full native range. Draw the five-point graphs to select Custom automatically. The custom volume graph edits A normally, or B with Shift.
+Requires Ableton Live with Max for Live. Development and user testing have used Live 12 Suite / Max 9. Native stem separation is needed only to prepare the collector’s input. Hardware display behavior and broader host compatibility remain under test; read each device’s verification notes before relying on it in a performance.
 
-## Record the movement
+## Build & test
 
-![X, Y, Z and independent loop-stretch controls](docs/images/loop-preview.png)
-
-1. Enable **REC** and move the cube.
-2. Disable REC: duration snaps to the nearest beat, minimum one beat. The whole gesture stretches to fit rather than being trimmed.
-3. **LOOP** follows Live’s transport. Recording while stopped uses Live’s current tempo.
-4. **UNDO** restores the previous gesture.
-
-| Stretch | Result |
-| --- | --- |
-| −2 / −1 | Quarter / half the original length |
-| **0** | **Original length, 1:1** |
-| +1 / +2 | Double / quadruple |
-
-Free stretch is continuous; Sync rounds to powers of two. Stretch changes preserve phase. Loop length does not reset at clip, scene or arrangement-loop boundaries. Stop recording before selecting tracks or resetting unity.
-
-## Mapping and original controls
-
-**Manual mapping:** click a Map button **first**, then click the target volume fader or EQ **gain** knob in Live. Do not enable Live’s MIDI Map mode. Click the same Map button to cancel. Continuous dB parameters only; duplicate targets and the Cube’s own controls are rejected. Manual mapping captures existing baselines; Reset Unity afterward for a neutral start.
-
-**Automatic mapping:** A and B must be different tracks. Missing or multiple EQ Threes are rejected. Rack-contained EQs require manual mapping; Refresh Tracks updates the list after track changes.
-
-**MANUAL / ORIGINALS:** releases remote ownership without forgetting targets. Original gain controls and their automation become editable again. Switching it off captures current underlying gains as new baselines and reapplies the cube position; center first for an unchanged level with the default Site curve.
-
-**RELEASE:** forgets targets and returns control to Live. Do not run multiple mapped cubes against the same parameters.
-
-EQ-strip edits to cube-owned gains adjust their baselines. Move away from a fully muted volume or full-sweep EQ endpoint before trimming it. Crossovers, band enables, slope and power edit the originals directly; cube movement affects only volume and gains.
-
-## Under the hood
-
-```mermaid
-flowchart LR
-    Point["Cube X / Y / Z"] --> Curves["Independent curves"]
-    Gesture["Recorded gesture + stretch"] --> Point
-    Curves --> Calibration["Native gain calibration"]
-    Calibration --> Remote["8 live.remote~ controls"]
-    Remote --> A["Track A: volume + EQ gains"]
-    Remote --> B["Track B: volume + EQ gains"]
-    A --> Readback["Read actual source values"]
-    B --> Readback
-    Readback --> Strips["Mirrored EQ strips"]
-```
-
-Native values are not linear audio amplitudes. The controller samples each target’s formatted dB scale at 65 points. Volume attenuates relative to its captured baseline; DJ EQ sweeps interpolate native gain positions from that baseline to the endpoints. Calibration is approximate because formatted strings are rounded. Source readbacks are polled approximately ten times per second and never write themselves back.
-
-## Build and test
-
-Node.js is required for development; there are no npm dependencies.
+Node.js is required; there are no npm dependencies. Release packaging also uses Python 3’s standard library.
 
 ```sh
 git clone https://github.com/mnicholas7/max-for-live-devices.git
 cd max-for-live-devices
-npm run build
+npm run build:automation
+npm run build:stems
 npm test
+python3 scripts/package-releases.py
 ```
 
-The generator writes an editable `.maxpat`, MIDI `.amxd` containers and `layout.js`. Older numbered filenames are **current-patch compatibility aliases**, not historical builds. Use release tags for historical sources. Reload the device after building to update whole-patch wiring; save your settings first.
-
-## Verification and limitations
-
-The user reports successful two-track control with 0.1.9. Automated mocked tests cover mixer math, all six EQ endpoints, unity mapping, baseline edits, mapping guards, readbacks, gestures, state and patch wiring. They do **not** prove complete host integration or audio performance.
-
-- **Acceptance testing remains:** saved-Set reopening, original automation restoration and sustained control under load.
-- `live.remote~` owns mapped parameters, disabling their original automation while connected. Use MANUAL or RELEASE to hand control back.
-- Moved/deleted targets require remapping; stored bindings are checked by ID and path.
-- Gesture playback resumes paused after loading; storage is capped at 36,000 samples.
-- A 33 ms tempo-integrated scheduler is used, not sample-accurate transport position. Stalls can affect timing; mismatched endpoints can jump on wrap.
-- The 1,070 logical-pixel device may require horizontal scrolling on small screens or at high Live UI zoom.
-- Saved pre-0.1.9 states retain their legacy EQ response until Reset Unity or a track selection enables the full sweep.
-- Browser/Ableton Link synchronization is **not** part of this device.
-
-Before performance use, check all eight targets, confirm center/cut/boost directions, test record/stretch/undo, save/reopen a disposable Set, and verify Release restores original automation. Inspect Max’s console for ownership conflicts.
-
-## Where it could go next
-
-Frozen standalone releases · nested Rack discovery · larger/pop-out views · smoother loop seams · more curve handles · transport-accurate timing · additional linked cubes. These are proposals, not shipped features.
+Sources, editable `.maxpat` patches, generated devices and tests are in this repository. The [older Cube documentation](docs/legacy-cube.md) and historic release tags remain available; the old internal-loop device and the current automation device have different parameter sets. Recorded envelopes are not automatically migrated between them.
 
 ## License
 
-**GNU GPL version 3 only** (`GPL-3.0-only`); see [LICENSE](LICENSE). Use, study, modify and redistribute under that license. Ableton Live and Max are separate proprietary products and are not included. Independent project, not affiliated with Ableton or Cycling ’74.
-
-References: [remote parameter control](https://docs.cycling74.com/reference/live.remote~), [Live parameter API](https://docs.cycling74.com/apiref/lom/deviceparameter/).
+Both devices and their source are released under **GNU GPL version 3 only (`GPL-3.0-only`)**. See [LICENSE](LICENSE). You can use, study, modify and redistribute them under that license. Ableton Live and Max are separate products and are not included. This is an independent project, unaffiliated with Ableton or Cycling ’74.

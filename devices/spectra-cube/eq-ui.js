@@ -1,4 +1,4 @@
-autowatch=1;
+autowatch=0;
 inlets=1;
 outlets=1;
 mgraphics.init();mgraphics.relative_coords=0;mgraphics.autofill=0;

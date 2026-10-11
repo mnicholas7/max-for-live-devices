@@ -1,4 +1,4 @@
-autowatch=1;
+autowatch=0;
 inlets=1;
 outlets=3;
 include('core.js');
@@ -7,6 +7,34 @@ var state=SpectraCube.defaults(),loop=new SpectraCube.Loop(),ready=false,lastTim
 var names=['A VOL','A LOW','A MID','A HIGH','B VOL','B LOW','B MID','B HIGH'];
 var selectionObserver=null,mappingTask=null,pendingMap=-1,selectedTarget=0;
 var trackIds=[],menuBusy=false;
+var directWrite=false;
+var writeLast=[];
+var writeTask=null,writePending=[],writeScheduled=false,writeFlushing=false;
+function cancelwrites(){if(writeTask)writeTask.cancel();writePending=[];writeScheduled=false;}
+function queuewrite(index,raw){
+ var mapping=state.mappings[index],minimum=mapping.table[0][0],maximum=mapping.table[mapping.table.length-1][0];
+ writePending[index]={id:mapping.id,raw:raw,tolerance:Math.max(0.000001,Math.abs(maximum-minimum)*0.001)};
+ if(!writeScheduled&&!writeFlushing){if(!writeTask)writeTask=new Task(flushwrites,this);writeScheduled=true;writeTask.schedule(100);}
+}
+function flushwrites(){
+ writeScheduled=false;
+ if(writeFlushing)return;
+ var pending=writePending;writePending=[];
+ if(!directWrite||!ready||state.manual)return;
+ writeFlushing=true;
+ try{for(var index=0;index<8;index++){var desired=pending[index],mapping=state.mappings[index],api=apis[index];if(!desired||!mapping||mapping.id!==desired.id)continue;if(writeLast[index]&&writeLast[index].id===desired.id&&Math.abs(writeLast[index].raw-desired.raw)<=desired.tolerance)continue;if(!checkedApi(api,mapping.path)||!Number(api.get('is_enabled')))throw new Error('Target unavailable or controlled elsewhere');api.set('value',desired.raw);writeLast[index]={id:desired.id,raw:desired.raw};}}
+ catch(error){state.manual=1;cancelwrites();loop.playing=false;if(task)task.cancel();mirror();status('WRITE PAUSED / '+error.message);}
+ writeFlushing=false;
+ if(writePending.length&&directWrite&&ready&&!state.manual){writeScheduled=true;writeTask.schedule(100);}
+}
+function directwrite(value){
+ cancelwrites();
+ writeLast=[];
+ directWrite=!!Number(value);
+ for(var index=0;index<8;index++){outlet(1,index,'id',0);if(!directWrite&&ready&&!state.manual&&state.mappings[index]&&checkedApi(apis[index],state.mappings[index].path))outlet(1,index,'id',state.mappings[index].id);}
+ if(this.patcher)this.patcher.message('script','send','directwrite','set',Number(directWrite));
+ status(directWrite?'WRITE TEST / event-driven direct control; MANUAL stops writes and polling for native playback':'REMOTE / smooth cube control; target automation disabled');
+}
 function applylayout(){
  if(typeof SpectraLayout==='undefined'||!this.patcher)return;
  for(var index=0;index<SpectraLayout.controls.length;index++){var control=SpectraLayout.controls[index];this.patcher.message('script','sendbox',control.id,'hidden',control.section===state.uiSection?0:1);this.patcher.message('script','sendbox',control.id,'presentation_rect',control.rect[0],control.rect[1],control.rect[2],control.rect[3]);}
@@ -23,7 +51,7 @@ function discoverEq(device){
 }
 function restoreEqApis(){
  eqApis=[[],[]];
- for(var side=0;side<2;side++){var targets=state.eqTargets[side];if(!targets)continue;for(var index=0;index<eqKeys.length;index++){var target=targets[eqKeys[index]];if(!target)continue;try{var api=new LiveAPI(null,'id '+target.id);if(checkedApi(api,target.path))eqApis[side][index]=api;}catch(error){}}}
+ for(var side=0;side<2;side++){var targets=state.eqTargets[side];if(!targets)continue;for(var index=0;index<eqKeys.length;index++){var target=targets[eqKeys[index]];if(!target)continue;try{var api=new LiveAPI(null,'id '+target.id);if(!checkedApi(api,target.path))api=new LiveAPI(null,target.path.replace(/^"|"$/g,''));if(checkedApi(api,target.path)){target.id=Number(api.id);eqApis[side][index]=api;}}catch(error){}}}
  mirror();
 }
 function mirror(){
@@ -33,8 +61,10 @@ function mirror(){
  outlet(2,'eqview',JSON.stringify({manual:state.manual,strips:strips}));outlet(2,'manualstate',state.manual);
 }
 function manual(value){
+ cancelwrites();
  var next=Number(!!Number(value));if(next===state.manual)return;state.manual=next;
- for(var index=0;index<8;index++){outlet(1,index,'id',0);if(!next&&state.mappings[index]&&checkedApi(apis[index],state.mappings[index].path)){state.mappings[index].base=parseDb(apis[index],Number(apis[index].get('value')));outlet(1,index,'id',state.mappings[index].id);}}
+ if(next){loop.playing=false;if(task)task.cancel();if(selectionObserver)selectionObserver.property='';}else if(ready){if(selectionObserver)selectionObserver.property='selected_parameter';lastTime=Date.now();if(task)task.repeat();}
+ for(var index=0;index<8;index++){outlet(1,index,'id',0);if(!next&&state.mappings[index]&&checkedApi(apis[index],state.mappings[index].path)){state.mappings[index].base=parseDb(apis[index],Number(apis[index].get('value')));if(!directWrite)outlet(1,index,'id',state.mappings[index].id);}}
  emit();mirror();save();status(next?'MANUAL / originals editable; cube gains disconnected':'CUBE / manual gains captured as new baselines');
 }
 function eqedit(side,lane,position){
@@ -92,20 +122,21 @@ function track(side,choice){
   for(var lane=0;lane<3;lane++)selected.push(new LiveAPI(null,'id '+gainIds[lane]));
   for(var lane=0;lane<4;lane++){prepared.push(prepareMapping(selected[lane]));for(var other=0;other<8;other++)if(Math.floor(other/4)!==side&&state.mappings[other]&&state.mappings[other].id===prepared[lane].id)throw new Error('A and B must use different tracks');}
   var eqTargets=discoverEq(eqs[0]);eqTargets.name=String(target.get('name'));
-  for(var lane=0;lane<4;lane++){outlet(1,offset+lane,'id',0);state.mappings[offset+lane]=prepared[lane];apis[offset+lane]=selected[lane];if(!state.manual)outlet(1,offset+lane,'id',prepared[lane].id);}
+  for(var lane=0;lane<4;lane++){outlet(1,offset+lane,'id',0);state.mappings[offset+lane]=prepared[lane];apis[offset+lane]=selected[lane];if(!state.manual&&!directWrite)outlet(1,offset+lane,'id',prepared[lane].id);}
   state.eqTargets[side]=eqTargets;restoreEqApis();
   if(resetunity())status((side?'B':'A')+' / '+String(target.get('name'))+' / mapped at unity; full DJ sweep');
  }catch(error){status('TRACK: '+error.message);}
  updateTrackChoices();
 }
 function status(text){outlet(2,'status',text);}
-function getvalueof(){state.take=loop.take;return JSON.stringify(state);}
-function setvalueof(value){try{var restored=JSON.parse(String(value)),fresh=SpectraCube.defaults();if(restored.djSweep===undefined)fresh.djSweep=0;for(var key in fresh)if(restored[key]!==undefined)fresh[key]=restored[key];state=fresh;loop.take=state.take;loop.playing=false;if(ready)restoreMappings();applylayout();display();}catch(error){status('State restore failed: '+error.message);}}
-function save(){notifyclients();}
+function serializeState(){state.take=loop.take;return JSON.stringify(state);}
+function getvalueof(){var json=serializeState(),bytes=[];for(var index=0;index<json.length;index++)bytes.push(json.charCodeAt(index));return bytes;}
+function setvalueof(value){try{var values=arguments.length>1?arrayfromargs(arguments):value,json=Object.prototype.toString.call(values)==='[object Array]'?values.map(function(code){return String.fromCharCode(Number(code));}).join(''):String(values),restored=JSON.parse(json),fresh=SpectraCube.defaults();if(restored.djSweep===undefined)fresh.djSweep=0;for(var key in fresh)if(restored[key]!==undefined)fresh[key]=restored[key];state=fresh;loop.take=state.take;loop.playing=false;if(ready)restoreMappings();applylayout();display();}catch(error){status('State restore failed: '+error.message);}}
+function save(){if(!dragging)notifyclients();}
 function display(){outlet(2,'buttons',Number(loop.recording),Number(loop.playing));outlet(2,'viewstate',JSON.stringify({point:state.point,phase:loop.phase,recording:loop.recording,playing:loop.playing,length:loop.take?loop.take.length:0,volumeCurve:state.volumeCurve,volumeShape:state.volumeShape,toneCurve:state.toneCurve,toneShape:state.toneShape,midCurve:state.midCurve,midShape:state.midShape,customVolume:state.customVolume,customTone:state.customTone,customMid:state.customMid}));}
 function emit(){
  var values=SpectraCube.mix(state);
- for(var index=0;index<8;index++){var mapping=state.mappings[index];if(!mapping||state.manual)continue;var db=index%4===0?(values[index]<=0?-120:mapping.base+20*Math.log(values[index])/Math.LN10):mapping.base+values[index];outlet(0,index,index%4!==0&&state.djSweep?SpectraCube.eqRaw(mapping,values[index]):SpectraCube.rawForDb(mapping.table,SpectraCube.clamp(db,index%4===0?-120:-12,index%4===0?mapping.base:12)));}
+ for(var index=0;index<8;index++){var mapping=state.mappings[index];if(!ready||!mapping||state.manual)continue;var db=index%4===0?(values[index]<=0?-120:mapping.base+20*Math.log(values[index])/Math.LN10):mapping.base+values[index],raw=index%4!==0&&state.djSweep?SpectraCube.eqRaw(mapping,values[index]):SpectraCube.rawForDb(mapping.table,SpectraCube.clamp(db,index%4===0?-120:-12,index%4===0?mapping.base:12));if(directWrite)queuewrite(index,raw);else outlet(0,index,raw);}
  display();
 }
 function parameter(name,value){
@@ -115,7 +146,7 @@ function parameter(name,value){
  emit();save();
 }
 function point(x,y,z){state.point=[SpectraCube.clamp(x,0,1),SpectraCube.clamp(y,0,1),SpectraCube.clamp(z,0,1)];outlet(2,'manualaxes',state.point);emit();save();}
-function touch(value){dragging=!!value;}
+function touch(value){dragging=!!value;if(!dragging)save();}
 function center(){point(.5,.5,.5);}
 function record(value){if(value){loop.start(state.point);status('REC / transport runs or stopped tempo clock');}else{loop.stop(state.point);status('LOOP / '+(loop.take?loop.take.length:0)+' beats');}display();save();}
 function playback(value){loop.playing=!!value&&!loop.recording&&!!loop.take;display();}
@@ -153,11 +184,12 @@ function bindSelected(){
   outlet(1,index,'id',0);
   state.mappings[index]=prepared;apis[index]=selected;
   pendingMap=-1;selectedTarget=0;
-  if(!state.manual)outlet(1,index,'id',Number(selected.id));status(names[index]+' / '+state.mappings[index].name);emit();save();
+  if(!state.manual&&!directWrite)outlet(1,index,'id',Number(selected.id));status(names[index]+' / '+state.mappings[index].name);emit();save();
  }catch(error){status('MAP: '+error.message);}
 }
 function restoreMappings(){
- for(var index=0;index<8;index++){outlet(1,index,'id',0);var mapping=state.mappings[index];if(!mapping)continue;try{var api=new LiveAPI(null,'id '+mapping.id);if(!api.id||api.type!=='DeviceParameter'||apiPath(api)!==mapping.path.replace(/^"|"$/g,''))throw new Error('Target moved or missing');mapping.path=apiPath(api);apis[index]=api;if(!state.manual)outlet(1,index,'id',api.id);}catch(error){state.mappings[index]=null;status(names[index]+' needs remapping');}}
+ if(!ready)return;
+ for(var index=0;index<8;index++){outlet(1,index,'id',0);var mapping=state.mappings[index];if(!mapping)continue;try{var api=new LiveAPI(null,'id '+mapping.id);if(!checkedApi(api,mapping.path))api=new LiveAPI(null,mapping.path.replace(/^"|"$/g,''));if(!checkedApi(api,mapping.path))throw new Error('Target moved or missing');mapping.id=Number(api.id);mapping.path=apiPath(api);apis[index]=api;if(!state.manual&&!directWrite)outlet(1,index,'id',api.id);}catch(error){apis[index]=null;status(names[index]+' unavailable / saved binding retained');}}
  restoreEqApis();
  if(trackIds.length)updateTrackChoices();
  emit();
@@ -165,7 +197,7 @@ function restoreMappings(){
 function release(){pendingMap=-1;selectedTarget=0;if(mappingTask)mappingTask.cancel();for(var index=0;index<8;index++)outlet(1,index,'id',0);state.mappings=[null,null,null,null,null,null,null,null];state.eqTargets=[null,null];apis=[];eqApis=[[],[]];loop.playing=false;display();mirror();status('Released all targets / original Live automation restored');save();}
 function capture(){
  if(loop.recording)return status('Stop recording before capturing');
- for(var index=0;index<8;index++)if(state.mappings[index]&&apis[index]){outlet(1,index,'id',0);state.mappings[index].base=parseDb(apis[index],Number(apis[index].get('value')));if(!state.manual)outlet(1,index,'id',state.mappings[index].id);}
+ for(var index=0;index<8;index++)if(state.mappings[index]&&apis[index]){outlet(1,index,'id',0);state.mappings[index].base=parseDb(apis[index],Number(apis[index].get('value')));if(!state.manual&&!directWrite)outlet(1,index,'id',state.mappings[index].id);}
  center();status('Captured underlying Live gains / centered cube');
 }
 function resetunity(){
@@ -177,19 +209,23 @@ function resetunity(){
   loop.playing=false;state.manual=0;state.djSweep=1;state.volumeCurve=0;state.toneCurve=0;state.midCurve=0;state.toneDepth=12;state.midDepth=12;state.point=[.5,.5,.5];
   for(var index=0;index<targets.length;index++)outlet(1,targets[index].index,'id',0);
   try{for(var index=0;index<targets.length;index++){var target=targets[index];target.api.set('value',target.raw);target.mapping.base=0;}for(var side=0;side<2;side++)for(var lane=2;lane<5;lane++){var api=eqApis[side][lane],binding=state.eqTargets[side]&&state.eqTargets[side][eqKeys[lane]];if(binding&&checkedApi(api,binding.path))api.set('value',Number(api.get('max')));}}
-  finally{for(var index=0;index<targets.length;index++){outlet(0,targets[index].index,targets[index].raw);outlet(1,targets[index].index,'id',targets[index].mapping.id);}}
+  finally{for(var index=0;index<targets.length;index++){if(!directWrite){outlet(0,targets[index].index,targets[index].raw);outlet(1,targets[index].index,'id',targets[index].mapping.id);}}}
   outlet(2,'manualaxes',state.point);outlet(2,'curve','volume',0);outlet(2,'curve','tone',0);outlet(2,'curve','mid',0);outlet(2,'depths',1,1);emit();mirror();save();status('UNITY / both volumes and EQ gains 0 dB; bands on; loop paused');return true;
  }catch(error){save();status('UNITY: '+error.message);return false;}
 }
 function tick(){
- var now=Date.now(),delta=lastTime?Math.max(0,Math.min(.25,(now-lastTime)/1000)):0;lastTime=now;
+ if(state.manual||(directWrite&&!loop.playing&&!loop.recording)){lastTime=Date.now();return;}
+ try{
+ var now=Date.now(),gap=lastTime?now-lastTime:0;lastTime=now;if(gap>2000||!song||!Number(song.id))throw new Error('Wake or Live connection reset');var delta=Math.max(0,Math.min(.25,gap/1000));
  var bpm=tempo?Number(tempo.get('tempo')):120,isPlaying=playing?Number(playing.get('is_playing')):0;
+ if(!isFinite(bpm)||bpm<=0)throw new Error('Tempo unavailable');
  var next=loop.tick((loop.recording||isPlaying)?delta*bpm/60:0,state.stretch,state.sync,state.point);
  if(next&&!dragging){state.point=next;outlet(2,'axes',next);emit();}else display();
- if(++mirrorTicks%3===0)mirror();
+ if(!directWrite&&++mirrorTicks%3===0)mirror();
+ }catch(error){ready=false;outlet(2,'apiready',0);status('Live connection interrupted / retrying without resetting gains');if(task)task.cancel();task=new Task(init,this);task.schedule(1000);}
 }
 function init(){
- if(ready)return;try{song=new LiveAPI(null,'live_set');playing=song;tempo=song;ready=true;restoreMappings();refreshtracks();selectionObserver=new LiveAPI(selectionChanged,'live_set view');selectionObserver.property='selected_parameter';task=new Task(tick,this);task.interval=33;lastTime=Date.now();task.repeat();status('Choose tracks A and B / one EQ Three on each');}catch(error){status('Live API unavailable / UI preview only');}
+ if(ready)return;try{song=new LiveAPI(null,'live_set');if(!Number(song.id))throw new Error('Live Set not ready');playing=song;tempo=song;ready=true;outlet(2,'apiready',1);restoreMappings();refreshtracks();if(selectionObserver)selectionObserver.property='';selectionObserver=new LiveAPI(selectionChanged,'live_set view');selectionObserver.property='selected_parameter';if(task)task.cancel();task=new Task(tick,this);task.interval=33;lastTime=Date.now();task.repeat();status('Live connected / saved targets restored where available');}catch(error){ready=false;outlet(2,'apiready',0);status('Waiting for Live API / saved targets retained');if(task)task.cancel();task=new Task(init,this);task.schedule(1000);}
 }
-function freebang(){pendingMap=-1;if(task)task.cancel();if(mappingTask)mappingTask.cancel();if(selectionObserver)selectionObserver.property='';for(var index=0;index<8;index++)outlet(1,index,'id',0);}
+function freebang(){cancelwrites();pendingMap=-1;if(task)task.cancel();if(mappingTask)mappingTask.cancel();if(selectionObserver)selectionObserver.property='';if(ready)for(var index=0;index<8;index++)outlet(1,index,'id',0);ready=false;}
 function loadbang(){applylayout();display();}
